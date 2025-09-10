@@ -1,18 +1,21 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Abir-Zayn/studentsApi/internal/config"
 )
 
 func main() {
 	// load config
-
 	cfg := config.MustLoad()
-
 	// database setup
 	// setup router
 	router := http.NewServeMux()
@@ -23,14 +26,30 @@ func main() {
 
 	// setup server
 	server := http.Server {
-		Addr : cfg.Addr,
+		Addr : cfg.HTTPServer.Addr,
 		Handler: router,
 	}
+	slog.Info("Starting server", slog.String("address: ", cfg.HTTPServer.Addr))
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	fmt.Printf("Starting server on %s", cfg.HTTPServer.Addr)
-	err := server.ListenAndServe()
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatal("Failed to start server:", err)
+		}
+	}()
+	<- done
+
+	slog.Info("Shutting Down server")
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
+	err := server.Shutdown(ctx)
+
 	if err != nil {
-		log.Fatal("Failed to start server:", err)
+		slog.Error("Failed to shutdown server", slog.String("error", err.Error()))
 	}
-	fmt.Println("Server started on", cfg.Addr)
+
+	slog.Info("Server exited properly")
 } 
