@@ -2,6 +2,7 @@ package student
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -17,7 +18,8 @@ func New() http.HandlerFunc {
 		if err := json.NewDecoder(r.Body).Decode(&st); err != nil {
 			// io.EOF, io.UnexpectedEOF, syntax errors … all land here
 			response.WriteJson(w, http.StatusBadRequest,
-				map[string]string{"error": "invalid or empty body"})
+				response.GeneralError(
+					fmt.Errorf("empty Body: %w", err)))
 			return
 		}
 
