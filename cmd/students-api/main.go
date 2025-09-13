@@ -12,16 +12,24 @@ import (
 
 	"github.com/Abir-Zayn/studentsApi/internal/config"
 	"github.com/Abir-Zayn/studentsApi/internal/http/handlers/student"
+	"github.com/Abir-Zayn/studentsApi/internal/storage/sqlite"
 )
 
 func main() {
 	// load config
 	cfg := config.MustLoad()
 	// database setup
+
+	store, err := sqlite.New(*cfg)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer store.Db.Close()
+
+
 	// setup router
 	router := http.NewServeMux()
-
-	router.HandleFunc("POST /api/students", student.New())
+	router.HandleFunc("POST /api/students", student.New(store))
 
 	// setup http server
 	server := http.Server {
@@ -52,11 +60,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()
 
-	err := server.Shutdown(ctx)
-
-	if err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("Failed to shutdown server", slog.String("error", err.Error()))
+	}else {
+		slog.Info("Server exited properly")
 	}
 
-	slog.Info("Server exited properly")
+	
 } 
